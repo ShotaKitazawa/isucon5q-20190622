@@ -336,6 +336,22 @@ LIMIT 10`, user.ID)
 	}
 	rows.Close()
 
+	rows, err = db.Query(`SELECT e.id, e.user_id, e.private, e.body, e.created_at
+FROM entries AS e
+JOIN relations AS r ON e.user_id = r.another
+WHERE r.one = ?
+ORDER BY e.created_at DESC
+LIMIT 10`, id)
+
+	entriesOfFriends := make([]Entry, 0, 10)
+	for rows.Next() {
+		var id, userID, private int
+		var body string
+		var createdAt time.Time
+		checkErr(rows.Scan(&id, &userID, &private, &body, &createdAt))
+		entriesOfFriends = append(entriesOfFriends, Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt})
+	}
+	/*
 	rows, err = db.Query(`SELECT * FROM entries ORDER BY created_at DESC LIMIT 1000`)
 	if err != sql.ErrNoRows {
 		checkErr(err)
@@ -354,6 +370,7 @@ LIMIT 10`, user.ID)
 			break
 		}
 	}
+	*/
 	rows.Close()
 
 	rows, err = db.Query(`SELECT * FROM comments ORDER BY created_at DESC LIMIT 1000`)
@@ -723,15 +740,15 @@ func GetInitialize(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// host := os.Getenv("ISUCON5_DB_HOST")
 	// if host == "" {
-	// 	host = "localhost"
+	//	host = "localhost"
 	// }
 	// portstr := os.Getenv("ISUCON5_DB_PORT")
 	// if portstr == "" {
-	// 	portstr = "3306"
+	//	portstr = "3306"
 	// }
 	// port, err := strconv.Atoi(portstr)
 	// if err != nil {
-	// 	log.Fatalf("Failed to read DB port number from an environment variable ISUCON5_DB_PORT.\nError: %s", err.Error())
+	//	log.Fatalf("Failed to read DB port number from an environment variable ISUCON5_DB_PORT.\nError: %s", err.Error())
 	// }
 	var err error
 	user := os.Getenv("ISUCON5_DB_USER")
