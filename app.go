@@ -386,12 +386,12 @@ FROM comments AS c
 JOIN relations AS r ON c.user_id = r.one
 JOIN entries AS e ON c.entry_id = e.id
 WHERE r.another = ?
-AND ((e.private = 0)
+AND e.private = 0
 OR (e.private = 1 AND e.user_id IN (
 	SELECT another
 	FROM relations
 	WHERE one = ?
-)))
+))
 ORDER BY c.created_at
 DESC LIMIT 10`,
 		user.ID, user.ID)
