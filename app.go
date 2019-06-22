@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path"
 	"runtime"
@@ -753,6 +754,8 @@ func main() {
 		log.Fatalf("Failed to connect to DB: %s.", err.Error())
 	}
 	defer db.Close()
+
+	go http.ListenAndServe(":3000", nil)
 
 	store = sessions.NewCookieStore([]byte(ssecret))
 
