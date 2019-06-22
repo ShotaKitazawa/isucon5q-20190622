@@ -337,12 +337,15 @@ LIMIT 10`, user.ID)
 	}
 	rows.Close()
 
-	rows, err = db.Query(`SELECT e.id, e.user_id, e.private, e.body, e.created_at
-FROM entries AS e
-JOIN relations AS r ON e.user_id = r.another
-WHERE r.one = ?
-ORDER BY e.created_at DESC
-LIMIT 10`, user.ID)
+	rows, err = db.Query(`SELECT * FROM entries
+WHERE user_id IN (SELECT another FROM relations WHERE one = ?)
+ORDER BY id DESC LIMIT 10`, user.ID)
+	//	rows, err = db.Query(`SELECT e.id, e.user_id, e.private, e.body, e.created_at
+	//FROM entries AS e
+	//JOIN relations AS r ON r.one = e.user_id
+	//WHERE r.another = ?
+	//ORDER BY e.created_at DESC
+	//LIMIT 10`, user.ID)
 
 	entriesOfFriends := make([]Entry, 0, 10)
 	for rows.Next() {
