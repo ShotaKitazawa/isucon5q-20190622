@@ -3,10 +3,6 @@ package main
 import (
 	"database/sql"
 	"errors"
-	"github.com/go-sql-driver/mysql"
-	"github.com/gorilla/context"
-	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 	"html/template"
 	"log"
 	"net/http"
@@ -17,6 +13,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-sql-driver/mysql"
+	"github.com/gorilla/context"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 )
 
 var (
@@ -341,7 +342,7 @@ FROM entries AS e
 JOIN relations AS r ON e.user_id = r.another
 WHERE r.one = ?
 ORDER BY e.created_at DESC
-LIMIT 10`, id)
+LIMIT 10`, user.ID)
 
 	entriesOfFriends := make([]Entry, 0, 10)
 	for rows.Next() {
@@ -352,24 +353,24 @@ LIMIT 10`, id)
 		entriesOfFriends = append(entriesOfFriends, Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt})
 	}
 	/*
-	rows, err = db.Query(`SELECT * FROM entries ORDER BY created_at DESC LIMIT 1000`)
-	if err != sql.ErrNoRows {
-		checkErr(err)
-	}
-	entriesOfFriends := make([]Entry, 0, 10)
-	for rows.Next() {
-		var id, userID, private int
-		var body string
-		var createdAt time.Time
-		checkErr(rows.Scan(&id, &userID, &private, &body, &createdAt))
-		if !isFriend(w, r, userID) {
-			continue
+		rows, err = db.Query(`SELECT * FROM entries ORDER BY created_at DESC LIMIT 1000`)
+		if err != sql.ErrNoRows {
+			checkErr(err)
 		}
-		entriesOfFriends = append(entriesOfFriends, Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt})
-		if len(entriesOfFriends) >= 10 {
-			break
+		entriesOfFriends := make([]Entry, 0, 10)
+		for rows.Next() {
+			var id, userID, private int
+			var body string
+			var createdAt time.Time
+			checkErr(rows.Scan(&id, &userID, &private, &body, &createdAt))
+			if !isFriend(w, r, userID) {
+				continue
+			}
+			entriesOfFriends = append(entriesOfFriends, Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt})
+			if len(entriesOfFriends) >= 10 {
+				break
+			}
 		}
-	}
 	*/
 	rows.Close()
 
