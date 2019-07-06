@@ -82,6 +82,10 @@ var (
 	ErrContentNotFound  = errors.New("Content not found.")
 )
 
+func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+}
+
 func authenticate(w http.ResponseWriter, r *http.Request, email, passwd string) {
 	query := `SELECT u.id AS id, u.account_name AS account_name, u.nick_name AS nick_name, u.email AS email
 FROM users u
