@@ -257,7 +257,7 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 		},
 		"substring": func(s string, l int) string {
 			fmt.Println("test")
-			if substring[s] != "" {
+			if substring[s] == "" {
 				if len(s) > l {
 					tmp := s[:l] + "..."
 					substring[s] = tmp
@@ -270,7 +270,7 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 			}
 		},
 		"substring60": func(s string) string {
-			if substring60[s] != "" {
+			if substring60[s] == "" {
 				if len(s) > 60 {
 					substring60[s] = s[:60]
 					return substring60[s]
