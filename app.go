@@ -328,12 +328,15 @@ func myHandler(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
 					delete(session.Values, "user_id")
 					session.Save(r, w)
 					fmt.Fprintf(w, loginFailed)
+					w.WriteHeader(http.StatusUnauthorized)
 					return
 				case rcv == ErrPermissionDenied:
 					fmt.Fprintf(w, onlyFriendAccess)
+					w.WriteHeader(http.StatusForbidden)
 					return
 				case rcv == ErrContentNotFound:
 					fmt.Fprintf(w, contentNotFound)
+					w.WriteHeader(http.StatusNotFound)
 					return
 				default:
 					var msg string
@@ -426,8 +429,8 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 }
 
 func GetLogin(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, helloworld)
-
+	fmt.Fprintf(w, contentNotFound)
+	w.WriteHeader(http.StatusOK)
 }
 
 func PostLogin(w http.ResponseWriter, r *http.Request) {
