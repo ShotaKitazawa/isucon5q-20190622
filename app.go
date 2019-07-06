@@ -29,7 +29,7 @@ var (
 	store             *sessions.CookieStore
 	substring         map[string]string
 	substring60       map[string]string
-	userByID          []User
+	userByID          map[int]User
 	userByAccountName map[string]User
 	userAuth          map[string]UserAuth
 	mu                sync.Mutex
@@ -37,7 +37,7 @@ var (
 )
 
 const (
-	helloworld =`
+	helloworld = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -202,7 +202,10 @@ var (
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	substring = make(map[string]string, 1024)
+	userByAccountName = make(map[string]User, 1024)
+	userAuth = make(map[string]UserAuth, 1024)
+	userByID = make(map[int]User, 1024)
+	substring60 = make(map[string]string, 1024)
 	substring60 = make(map[string]string, 1024)
 }
 
@@ -252,7 +255,10 @@ func getCurrentUser(w http.ResponseWriter, r *http.Request) *User {
 		}
 		checkErr(err)
 	*/
-	user := userByID[userID.(int)-1]
+	if _, ok = userByID[userID.(int)-1]; !ok {
+		checkErr(ErrAuthentication)
+	}
+	user,ok := userByID[userID.(int)-1]
 	context.Set(r, "user", user)
 	return &user
 }
@@ -879,8 +885,6 @@ func GetInitialize(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM entries WHERE id > 500000")
 	db.Exec("DELETE FROM comments WHERE id > 1500000")
 
-	userByAccountName = make(map[string]User, 1024)
-	userAuth = make(map[string]UserAuth, 1024)
 
 	rowsUsers, err := db.Query(`SELECT * FROM users`)
 	if err != sql.ErrNoRows {
@@ -898,7 +902,8 @@ func GetInitialize(w http.ResponseWriter, r *http.Request) {
 		if u.ID != ua.ID {
 			panic(errors.New("scan Users != scan Salts"))
 		}
-		userByID = append(userByID, User{u.ID, u.AccountName, u.NickName, u.Email})
+		//userByID = append(userByID, User{u.ID, u.AccountName, u.NickName, u.Email})
+		userByID[u.ID] = User{u.ID, u.AccountName, u.NickName, u.Email}
 		userByAccountName[u.AccountName] = User{u.ID, u.AccountName, u.NickName, u.Email}
 		userAuth[u.Email] = UserAuth{u.ID, ua.PassHash, ua.Salt}
 	}
