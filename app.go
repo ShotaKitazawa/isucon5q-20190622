@@ -86,7 +86,7 @@ var (
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	substring = make(map[srting]string, 1024)
+	substring = make(map[string]string, 1024)
 	substring60 = make(map[string]string, 1024)
 }
 
