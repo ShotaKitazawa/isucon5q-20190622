@@ -24,7 +24,7 @@ var (
 	db    *sql.DB
 	store *sessions.CookieStore
 	fmap  template.FuncMap
-	tpl   *Template
+	tpl   *template.Template
 )
 
 type User struct {
@@ -247,6 +247,9 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 			return isFriend(w, r, id)
 		},
 	}
+
+	tpl = template.Must(template.New(file).Funcs(fmap).ParseFiles(getTemplatePath(file), getTemplatePath("header.html")))
+
 	w.WriteHeader(status)
 	checkErr(tpl.Execute(w, data))
 }
@@ -813,8 +816,6 @@ func main() {
 			return n
 		},
 	}
-
-	tpl = template.Must(template.New(file).Funcs(fmap).ParseFiles(getTemplatePath(file), getTemplatePath("header.html")))
 
 	go http.ListenAndServe(":3000", nil)
 
