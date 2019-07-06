@@ -255,10 +255,10 @@ func getCurrentUser(w http.ResponseWriter, r *http.Request) *User {
 		}
 		checkErr(err)
 	*/
-	if _, ok = userByID[userID.(int)-1]; !ok {
+	if _, ok = userByID[userID.(int)]; !ok {
 		checkErr(ErrAuthentication)
 	}
-	user,ok := userByID[userID.(int)-1]
+	user, ok := userByID[userID.(int)]
 	context.Set(r, "user", user)
 	return &user
 }
@@ -282,7 +282,7 @@ func getUser(userID int) *User {
 		}
 		checkErr(err)
 	*/
-	user := userByID[userID-1]
+	user := userByID[userID]
 	return &user
 }
 
@@ -884,7 +884,6 @@ func GetInitialize(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM footprints WHERE id > 500000")
 	db.Exec("DELETE FROM entries WHERE id > 500000")
 	db.Exec("DELETE FROM comments WHERE id > 1500000")
-
 
 	rowsUsers, err := db.Query(`SELECT * FROM users`)
 	if err != sql.ErrNoRows {
