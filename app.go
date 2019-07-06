@@ -255,6 +255,7 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 			return prefs
 		},
 		"substring": func(s string, l int) string {
+			fmt.Println(substring[s])
 			if substring[s] != "" {
 				if len(s) > l {
 					tmp := s[:l] + "..."
