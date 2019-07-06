@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/sha512"
 	"database/sql"
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -25,6 +27,7 @@ var (
 	store             *sessions.CookieStore
 	userByID          []User
 	userByAccountName map[string]User
+	userAuth          map[string]UserAuth
 )
 
 type User struct {
@@ -32,7 +35,12 @@ type User struct {
 	AccountName string
 	NickName    string
 	Email       string
-	PassHash    string
+}
+
+type UserAuth struct {
+	ID       int
+	PassHash string
+	Salt     string
 }
 
 type Profile struct {
@@ -85,26 +93,28 @@ var (
 	ErrContentNotFound  = errors.New("Content not found.")
 )
 
-func init() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-}
-
 func authenticate(w http.ResponseWriter, r *http.Request, email, passwd string) {
-	query := `SELECT u.id AS id, u.account_name AS account_name, u.nick_name AS nick_name, u.email AS email
-FROM users u
-JOIN salts s ON u.id = s.user_id
-WHERE u.email = ? AND u.passhash = SHA2(CONCAT(?, s.salt), 512)`
-	row := db.QueryRow(query, email, passwd)
-	user := User{}
-	err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			checkErr(ErrAuthentication)
-		}
-		checkErr(err)
+	/*
+			query := `SELECT u.id AS id, u.account_name AS account_name, u.nick_name AS nick_name, u.email AS email
+		FROM users u
+		JOIN salts s ON u.id = s.user_id
+		WHERE u.email = ? AND u.passhash = SHA2(CONCAT(?, s.salt), 512)`
+			row := db.QueryRow(query, email, passwd)
+			user := User{}
+			err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					checkErr(ErrAuthentication)
+				}
+				checkErr(err)
+			}
+	*/
+	if userAuth[email].PassHash != fmt.Sprintf("%s", sha512.Sum512([]byte(passwd+userAuth[email].Salt))) {
+		checkErr(ErrAuthentication)
 	}
+
 	session := getSession(w, r)
-	session.Values["user_id"] = user.ID
+	session.Values["user_id"] = userAuth[email].ID
 	session.Save(r, w)
 }
 
@@ -119,13 +129,16 @@ func getCurrentUser(w http.ResponseWriter, r *http.Request) *User {
 	if !ok || userID == nil {
 		return nil
 	}
-	row := db.QueryRow(`SELECT id, account_name, nick_name, email FROM users WHERE id=?`, userID)
-	user := User{}
-	err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email)
-	if err == sql.ErrNoRows {
-		checkErr(ErrAuthentication)
-	}
-	checkErr(err)
+	/*
+		row := db.QueryRow(`SELECT id, account_name, nick_name, email FROM users WHERE id=?`, userID)
+		user := User{}
+		err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email)
+		if err == sql.ErrNoRows {
+			checkErr(ErrAuthentication)
+		}
+		checkErr(err)
+	*/
+	user := userByID[userID.(int)-1]
 	context.Set(r, "user", user)
 	return &user
 }
@@ -140,24 +153,30 @@ func authenticated(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func getUser(w http.ResponseWriter, userID int) *User {
-	row := db.QueryRow(`SELECT * FROM users WHERE id = ?`, userID)
-	user := User{}
-	err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email, new(string))
-	if err == sql.ErrNoRows {
-		checkErr(ErrContentNotFound)
-	}
-	checkErr(err)
+	/*
+		row := db.QueryRow(`SELECT * FROM users WHERE id = ?`, userID)
+		user := User{}
+		err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email, new(string))
+		if err == sql.ErrNoRows {
+			checkErr(ErrContentNotFound)
+		}
+		checkErr(err)
+	*/
+	user := userByID[userID-1]
 	return &user
 }
 
 func getUserFromAccount(w http.ResponseWriter, name string) *User {
-	row := db.QueryRow(`SELECT * FROM users WHERE account_name = ?`, name)
-	user := User{}
-	err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email, new(string))
-	if err == sql.ErrNoRows {
-		checkErr(ErrContentNotFound)
-	}
-	checkErr(err)
+	/*
+		row := db.QueryRow(`SELECT * FROM users WHERE account_name = ?`, name)
+		user := User{}
+		err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email, new(string))
+		if err == sql.ErrNoRows {
+			checkErr(ErrContentNotFound)
+		}
+		checkErr(err)
+	*/
+	user := userByAccountName[name]
 	return &user
 }
 
@@ -779,16 +798,29 @@ func GetInitialize(w http.ResponseWriter, r *http.Request) {
 
 	userByAccountName = make(map[string]User)
 
-	rows, err := db.Query(`SELECT * FROM users`)
+	rowsUsers, err := db.Query(`SELECT * FROM users`)
+	rowsSalts, err := db.Query(`SELECT * FROM salts`)
 	if err != sql.ErrNoRows {
 		checkErr(err)
 	}
-	for rows.Next() {
+	for rowsUsers.Next() {
+		rowsSalts.Next()
+
 		u := User{}
-		checkErr(rows.Scan(&u.ID, &u.AccountName, &u.NickName, &u.Email, &u.PassHash))
-		userByID = append(userByID, u)
-		userByAccountName[u.AccountName] = u
+		ua := UserAuth{}
+		checkErr(rowsUsers.Scan(&u.ID, &u.AccountName, &u.NickName, &u.Email, &ua.PassHash))
+		checkErr(rowsSalts.Scan(&ua.ID, &ua.Salt))
+		if u.ID != ua.ID {
+			panic(errors.New("scan Users != scan Salts"))
+		}
+		userByID = append(userByID, User{u.ID, u.AccountName, u.NickName, u.Email})
+		userByAccountName[u.AccountName] = User{u.ID, u.AccountName, u.NickName, u.Email}
+		userAuth[u.Email] = UserAuth{u.ID, ua.PassHash, ua.Salt}
 	}
+}
+
+func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 }
 
 func main() {
