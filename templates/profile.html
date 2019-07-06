@@ -37,7 +37,6 @@
   {{ end }}
 </div>
 
-<!-- {{ if eq getCurrentUser.ID .Owner.ID }} -->
 {{ if eq .CurrentUser.ID .Owner.ID }}
 <h2>プロフィール更新</h2>
 <div id="profile-post-form">
@@ -65,7 +64,6 @@
     <div><input type="submit" value="更新" /></div>
   </form>
 </div>
-<!-- {{ else if not (isFriend .Owner.ID) }} -->
 {{ else if not .isFriend }}
 <h2>あなたは友だちではありません</h2>
 <div id="profile-friend-form">
