@@ -138,7 +138,7 @@ func authenticated(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func getUser(w http.ResponseWriter, userID int) *User {
+func getUser(userID int) *User {
 	row := db.QueryRow(`SELECT * FROM users WHERE id = ?`, userID)
 	user := User{}
 	err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email, new(string))
@@ -239,6 +239,14 @@ func getTemplatePath(file string) string {
 }
 
 func render(w http.ResponseWriter, r *http.Request, status int, file string, data interface{}) {
+	fmap = template.FuncMap{
+		"getCurrentUser": func() *User {
+			return getCurrentUser(w, r)
+		},
+		"isFriend": func(id int) bool {
+			return isFriend(w, r, id)
+		},
+	}
 	w.WriteHeader(status)
 	checkErr(tpl.Execute(w, data))
 }
@@ -583,7 +591,7 @@ func GetEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	checkErr(err)
 	entry := Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt}
-	owner := getUser(w, entry.UserID)
+	owner := getUser(entry.UserID)
 	if entry.Private {
 		if !permitted(w, r, owner.ID) {
 			checkErr(ErrPermissionDenied)
@@ -649,7 +657,7 @@ func PostComment(w http.ResponseWriter, r *http.Request) {
 	checkErr(err)
 
 	entry := Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt}
-	owner := getUser(w, entry.UserID)
+	owner := getUser(entry.UserID)
 	if entry.Private {
 		if !permitted(w, r, owner.ID) {
 			checkErr(ErrPermissionDenied)
@@ -778,13 +786,7 @@ func main() {
 
 	fmap = template.FuncMap{
 		"getUser": func(id int) *User {
-			return getUser(w, id)
-		},
-		"getCurrentUser": func() *User {
-			return getCurrentUser(w, r)
-		},
-		"isFriend": func(id int) bool {
-			return isFriend(w, r, id)
+			return getUser(id)
 		},
 		"prefectures": func() []string {
 			return prefs
