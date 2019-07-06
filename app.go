@@ -202,11 +202,11 @@ var (
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	substring = make(map[string]string, 1024)
+	substring60 = make(map[string]string, 1024)
+	userByID = make(map[int]User, 1024)
 	userByAccountName = make(map[string]User, 1024)
 	userAuth = make(map[string]UserAuth, 1024)
-	userByID = make(map[int]User, 1024)
-	substring60 = make(map[string]string, 1024)
-	substring60 = make(map[string]string, 1024)
 }
 
 func authenticate(w http.ResponseWriter, r *http.Request, email, passwd string) {
