@@ -303,7 +303,6 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 			defer mu.Unlock()
 			if substring60[s] == "" {
 				if len(s) > 60 {
-					A
 					substring60[s] = s[:60]
 					return substring60[s]
 				}
