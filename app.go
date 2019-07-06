@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/sha512"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"html/template"
 	"log"
@@ -21,10 +23,13 @@ import (
 )
 
 var (
-	db          *sql.DB
-	store       *sessions.CookieStore
-	substring   map[string]string
-	substring60 map[string]string
+	db                *sql.DB
+	store             *sessions.CookieStore
+	substring         map[string]string
+	substring60       map[string]string
+	userByID          []User
+	userByAccountName map[string]User
+	userAuth          map[string]UserAuth
 )
 
 type User struct {
@@ -32,6 +37,12 @@ type User struct {
 	AccountName string
 	NickName    string
 	Email       string
+}
+
+type UserAuth struct {
+	ID       int
+	PassHash string
+	Salt     string
 }
 
 type Profile struct {
@@ -91,21 +102,28 @@ func init() {
 }
 
 func authenticate(w http.ResponseWriter, r *http.Request, email, passwd string) {
-	query := `SELECT u.id AS id, u.account_name AS account_name, u.nick_name AS nick_name, u.email AS email
-FROM users u
-JOIN salts s ON u.id = s.user_id
-WHERE u.email = ? AND u.passhash = SHA2(CONCAT(?, s.salt), 512)`
-	row := db.QueryRow(query, email, passwd)
-	user := User{}
-	err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			checkErr(ErrAuthentication)
-		}
-		checkErr(err)
+	/*
+			query := `SELECT u.id AS id, u.account_name AS account_name, u.nick_name AS nick_name, u.email AS email
+		FROM users u
+		JOIN salts s ON u.id = s.user_id
+		WHERE u.email = ? AND u.passhash = SHA2(CONCAT(?, s.salt), 512)`
+			row := db.QueryRow(query, email, passwd)
+			user := User{}
+			err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					checkErr(ErrAuthentication)
+				}
+				checkErr(err)
+			}
+	*/
+	hash := sha512.Sum512([]byte(passwd + userAuth[email].Salt))
+	if userAuth[email].PassHash != hex.EncodeToString(hash[:]) {
+		checkErr(ErrAuthentication)
 	}
+
 	session := getSession(w, r)
-	session.Values["user_id"] = user.ID
+	session.Values["user_id"] = userAuth[email].ID
 	session.Save(r, w)
 }
 
@@ -120,13 +138,16 @@ func getCurrentUser(w http.ResponseWriter, r *http.Request) *User {
 	if !ok || userID == nil {
 		return nil
 	}
-	row := db.QueryRow(`SELECT id, account_name, nick_name, email FROM users WHERE id=?`, userID)
-	user := User{}
-	err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email)
-	if err == sql.ErrNoRows {
-		checkErr(ErrAuthentication)
-	}
-	checkErr(err)
+	/*
+		row := db.QueryRow(`SELECT id, account_name, nick_name, email FROM users WHERE id=?`, userID)
+		user := User{}
+		err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email)
+		if err == sql.ErrNoRows {
+			checkErr(ErrAuthentication)
+		}
+		checkErr(err)
+	*/
+	user := userByID[userID.(int)-1]
 	context.Set(r, "user", user)
 	return &user
 }
@@ -141,24 +162,30 @@ func authenticated(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func getUser(w http.ResponseWriter, userID int) *User {
-	row := db.QueryRow(`SELECT * FROM users WHERE id = ?`, userID)
-	user := User{}
-	err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email, new(string))
-	if err == sql.ErrNoRows {
-		checkErr(ErrContentNotFound)
-	}
-	checkErr(err)
+	/*
+		row := db.QueryRow(`SELECT * FROM users WHERE id = ?`, userID)
+		user := User{}
+		err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email, new(string))
+		if err == sql.ErrNoRows {
+			checkErr(ErrContentNotFound)
+		}
+		checkErr(err)
+	*/
+	user := userByID[userID-1]
 	return &user
 }
 
 func getUserFromAccount(w http.ResponseWriter, name string) *User {
-	row := db.QueryRow(`SELECT * FROM users WHERE account_name = ?`, name)
-	user := User{}
-	err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email, new(string))
-	if err == sql.ErrNoRows {
-		checkErr(ErrContentNotFound)
-	}
-	checkErr(err)
+	/*
+		row := db.QueryRow(`SELECT * FROM users WHERE account_name = ?`, name)
+		user := User{}
+		err := row.Scan(&user.ID, &user.AccountName, &user.NickName, &user.Email, new(string))
+		if err == sql.ErrNoRows {
+			checkErr(ErrContentNotFound)
+		}
+		checkErr(err)
+	*/
+	user := userByAccountName[name]
 	return &user
 }
 
@@ -796,6 +823,30 @@ func GetInitialize(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM footprints WHERE id > 500000")
 	db.Exec("DELETE FROM entries WHERE id > 500000")
 	db.Exec("DELETE FROM comments WHERE id > 1500000")
+
+	userByAccountName = make(map[string]User, 1024)
+	userAuth = make(map[string]UserAuth, 1024)
+
+	rowsUsers, err := db.Query(`SELECT * FROM users`)
+	if err != sql.ErrNoRows {
+		checkErr(err)
+	}
+	rowsSalts, err := db.Query(`SELECT * FROM salts`)
+	if err != sql.ErrNoRows {
+		checkErr(err)
+	}
+	for rowsUsers.Next() && rowsSalts.Next() {
+		u := User{}
+		ua := UserAuth{}
+		checkErr(rowsUsers.Scan(&u.ID, &u.AccountName, &u.NickName, &u.Email, &ua.PassHash))
+		checkErr(rowsSalts.Scan(&ua.ID, &ua.Salt))
+		if u.ID != ua.ID {
+			panic(errors.New("scan Users != scan Salts"))
+		}
+		userByID = append(userByID, User{u.ID, u.AccountName, u.NickName, u.Email})
+		userByAccountName[u.AccountName] = User{u.ID, u.AccountName, u.NickName, u.Email}
+		userAuth[u.Email] = UserAuth{u.ID, ua.PassHash, ua.Salt}
+	}
 }
 
 func main() {
@@ -803,9 +854,7 @@ func main() {
 	// if host == "" {
 	//	host = "localhost"
 	// }
-	// portstr := os.Getenv("ISUCON5_DB_PORT")
-	// if portstr == "" {
-	//	portstr = "3306"
+	// portstr := os.Getenv("ISUCON5_DB_PORT") if portstr == "" { portstr = "3306"
 	// }
 	// port, err := strconv.Atoi(portstr)
 	// if err != nil {
