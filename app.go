@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -30,6 +31,7 @@ var (
 	userByID          []User
 	userByAccountName map[string]User
 	userAuth          map[string]UserAuth
+	mu                sync.Mutex
 )
 
 type User struct {
@@ -282,6 +284,8 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 			return prefs
 		},
 		"substring": func(s string, l int) string {
+			mu.Lock()
+			defer mu.Unlock()
 			if substring[s] == "" {
 				if len(s) > l {
 					tmp := s[:l] + "..."
@@ -295,8 +299,11 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 			}
 		},
 		"substring60": func(s string) string {
+			mu.Lock()
+			defer mu.Unlock()
 			if substring60[s] == "" {
 				if len(s) > 60 {
+					A
 					substring60[s] = s[:60]
 					return substring60[s]
 				}
