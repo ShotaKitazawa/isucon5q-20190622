@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha512"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"html/template"
@@ -117,7 +118,8 @@ func authenticate(w http.ResponseWriter, r *http.Request, email, passwd string) 
 				checkErr(err)
 			}
 	*/
-	if userAuth[email].PassHash != fmt.Sprintf("%s", sha512.Sum512([]byte(passwd+userAuth[email].Salt))) {
+	hash := sha512.Sum512([]byte(passwd + userAuth[email].Salt))
+	if userAuth[email].PassHash != hex.EncodeToString(hash[:]) {
 		checkErr(ErrAuthentication)
 	}
 
