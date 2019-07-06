@@ -823,16 +823,18 @@ func GetInitialize(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM entries WHERE id > 500000")
 	db.Exec("DELETE FROM comments WHERE id > 1500000")
 
-	userByAccountName = make(map[string]User)
+	userByAccountName = make(map[string]User, 1024)
+	userAuth = make(map[string]UserAuth, 1024)
 
 	rowsUsers, err := db.Query(`SELECT * FROM users`)
+	if err != sql.ErrNoRows {
+		checkErr(err)
+	}
 	rowsSalts, err := db.Query(`SELECT * FROM salts`)
 	if err != sql.ErrNoRows {
 		checkErr(err)
 	}
-	for rowsUsers.Next() {
-		rowsSalts.Next()
-
+	for rowsUsers.Next() && rowsSalts.Next() {
 		u := User{}
 		ua := UserAuth{}
 		checkErr(rowsUsers.Scan(&u.ID, &u.AccountName, &u.NickName, &u.Email, &ua.PassHash))
