@@ -21,8 +21,10 @@ import (
 )
 
 var (
-	db    *sql.DB
-	store *sessions.CookieStore
+	db          *sql.DB
+	store       *sessions.CookieStore
+	substring   map[string]string
+	substring60 map[string]string
 )
 
 type User struct {
@@ -84,6 +86,8 @@ var (
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	substring = make(map[string]string, 1024)
+	substring60 = make(map[string]string, 1024)
 }
 
 func authenticate(w http.ResponseWriter, r *http.Request, email, passwd string) {
@@ -251,10 +255,29 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 			return prefs
 		},
 		"substring": func(s string, l int) string {
-			if len(s) > l {
-				return s[:l]
+			if substring[s] == "" {
+				if len(s) > l {
+					tmp := s[:l] + "..."
+					substring[s] = tmp
+					return tmp
+				}
+				substring[s] = s
+				return s
+			} else {
+				return substring[s]
 			}
-			return s
+		},
+		"substring60": func(s string) string {
+			if substring60[s] == "" {
+				if len(s) > 60 {
+					substring60[s] = s[:60]
+					return substring60[s]
+				}
+				substring60[s] = s
+				return s
+			} else {
+				return substring60[s]
+			}
 		},
 		"split": strings.Split,
 		"getEntry": func(id int) Entry {
