@@ -21,8 +21,10 @@ import (
 )
 
 var (
-	db    *sql.DB
-	store *sessions.CookieStore
+	db                *sql.DB
+	store             *sessions.CookieStore
+	userByID          []User
+	userByAccountName map[string]User
 )
 
 type User struct {
@@ -30,6 +32,7 @@ type User struct {
 	AccountName string
 	NickName    string
 	Email       string
+	PassHash    string
 }
 
 type Profile struct {
@@ -773,6 +776,19 @@ func GetInitialize(w http.ResponseWriter, r *http.Request) {
 	db.Exec("DELETE FROM footprints WHERE id > 500000")
 	db.Exec("DELETE FROM entries WHERE id > 500000")
 	db.Exec("DELETE FROM comments WHERE id > 1500000")
+
+	userByAccountName = make(map[string]User)
+
+	rows, err := db.Query(`SELECT * FROM users`)
+	if err != sql.ErrNoRows {
+		checkErr(err)
+	}
+	for rows.Next() {
+		u := User{}
+		checkErr(rows.Scan(&u.ID, &u.AccountName, &u.NickName, &u.Email, &u.PassHash))
+		userByID = append(userByID, u)
+		userByAccountName[u.AccountName] = u
+	}
 }
 
 func main() {
@@ -780,9 +796,7 @@ func main() {
 	// if host == "" {
 	//	host = "localhost"
 	// }
-	// portstr := os.Getenv("ISUCON5_DB_PORT")
-	// if portstr == "" {
-	//	portstr = "3306"
+	// portstr := os.Getenv("ISUCON5_DB_PORT") if portstr == "" { portstr = "3306"
 	// }
 	// port, err := strconv.Atoi(portstr)
 	// if err != nil {
