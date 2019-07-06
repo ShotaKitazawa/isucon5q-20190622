@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -33,6 +34,107 @@ var (
 	userAuth          map[string]UserAuth
 	mu                sync.Mutex
 	fmap              template.FuncMap
+)
+
+const (
+	helloworld =`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+  <title>ISUxi</title>
+</head>
+
+<body class="container">
+<h1 class="jumbotron"><a href="/">ISUxiへようこそ!</a></h1>
+
+<h2>ISUxi login</h2>
+
+<div class="text-danger" id="logout-message">高負荷に耐えられるSNSコミュニティサイトへようこそ!</div>
+
+<div id="login-form">
+  <form method="POST" action="/login">
+    <div class="col-md-4 input-group">
+      <span class="input-group-addon">E-mail</span>
+      <input class="form-control" type="text" name="email" placeholder="E-mail address" />
+    </div>
+    <div class="col-md-4 input-group">
+      <span class="input-group-addon">パスワード</span>
+      <input class="form-control" type="password" name="password" />
+    </div>
+    <div class="col-md-1 input-group">
+      <input class="btn btn-default" type="submit" name="Login" value="Login" />
+    </div>
+  </form>
+</div>
+
+</body>
+</html>`
+	loginFailed = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+  <title>ISUxi</title>
+</head>
+
+<body class="container">
+<h1 class="jumbotron"><a href="/">ISUxiへようこそ!</a></h1>
+
+<h2>ISUxi login</h2>
+
+<div class="text-danger" id="logout-message">ログインに失敗しました</div>
+
+<div id="login-form">
+  <form method="POST" action="/login">
+    <div class="col-md-4 input-group">
+      <span class="input-group-addon">E-mail</span>
+      <input class="form-control" type="text" name="email" placeholder="E-mail address" />
+    </div>
+    <div class="col-md-4 input-group">
+      <span class="input-group-addon">パスワード</span>
+      <input class="form-control" type="password" name="password" />
+    </div>
+    <div class="col-md-1 input-group">
+      <input class="btn btn-default" type="submit" name="Login" value="Login" />
+    </div>
+  </form>
+</div>
+
+</body>
+</html>`
+	onlyFriendAccess = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <title>ISUxi</title>
+</head>
+<body class="container">
+<h1 class="jumbotron"><a href="/">ISUxiへようこそ!</a></h1>
+<h2>エラー</h2>
+<div class="text-danger">友人のみしかアクセスできません</div>
+<div><a href="/">戻る</a></div>
+</body>
+</html>`
+	contentNotFound = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <title>ISUxi</title>
+</head>
+<body class="container">
+<h1 class="jumbotron"><a href="/">ISUxiへようこそ!</a></h1>
+<h2>エラー</h2>
+<div class="text-danger">要求されたコンテンツは存在しません</div>
+<div><a href="/">戻る</a></div>
+</body>
+</html>`
 )
 
 type User struct {
@@ -164,7 +266,7 @@ func authenticated(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func getUser(w http.ResponseWriter, userID int) *User {
+func getUser(userID int) *User {
 	/*
 		row := db.QueryRow(`SELECT * FROM users WHERE id = ?`, userID)
 		user := User{}
@@ -236,13 +338,16 @@ func myHandler(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
 					session := getSession(w, r)
 					delete(session.Values, "user_id")
 					session.Save(r, w)
-					render(w, r, http.StatusUnauthorized, "login.html", struct{ Message string }{"ログインに失敗しました"})
+					fmt.Fprintf(w, loginFailed)
+					//render(w, r, http.StatusUnauthorized, "login.html", struct{ Message string }{"ログインに失敗しました"})
 					return
 				case rcv == ErrPermissionDenied:
-					render(w, r, http.StatusForbidden, "error.html", struct{ Message string }{"友人のみしかアクセスできません"})
+					fmt.Fprintf(w, onlyFriendAccess)
+					//render(w, r, http.StatusForbidden, "error.html", struct{ Message string }{"友人のみしかアクセスできません"})
 					return
 				case rcv == ErrContentNotFound:
-					render(w, r, http.StatusNotFound, "error.html", struct{ Message string }{"要求されたコンテンツは存在しません"})
+					fmt.Fprintf(w, contentNotFound)
+					//render(w, r, http.StatusNotFound, "error.html", struct{ Message string }{"要求されたコンテンツは存在しません"})
 					return
 				default:
 					var msg string
@@ -277,7 +382,8 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 }
 
 func GetLogin(w http.ResponseWriter, r *http.Request) {
-	render(w, r, http.StatusOK, "login.html", struct{ Message string }{"高負荷に耐えられるSNSコミュニティサイトへようこそ!"})
+	//render(w, r, http.StatusOK, "login.html", struct{ Message string }{"高負荷に耐えられるSNSコミュニティサイトへようこそ!"})
+	fmt.Fprintf(w, helloworld)
 }
 
 func PostLogin(w http.ResponseWriter, r *http.Request) {
