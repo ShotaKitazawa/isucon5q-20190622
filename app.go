@@ -429,7 +429,7 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 }
 
 func GetLogin(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, contentNotFound)
+	fmt.Fprintf(w, helloworld)
 	w.WriteHeader(http.StatusOK)
 }
 
