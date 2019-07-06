@@ -3,3 +3,7 @@
 app
 vendor
 
+vendor
+Gopkg.lock
+Gopkg.toml
+

@@ -32,6 +32,7 @@ var (
 	userByAccountName map[string]User
 	userAuth          map[string]UserAuth
 	mu                sync.Mutex
+	fmap              template.FuncMap
 )
 
 type User struct {
@@ -270,64 +271,6 @@ func getTemplatePath(file string) string {
 }
 
 func render(w http.ResponseWriter, r *http.Request, status int, file string, data interface{}) {
-	fmap := template.FuncMap{
-		"getUser": func(id int) *User {
-			return getUser(w, id)
-		},
-		"getCurrentUser": func() *User {
-			return getCurrentUser(w, r)
-		},
-		"isFriend": func(id int) bool {
-			return isFriend(w, r, id)
-		},
-		"prefectures": func() []string {
-			return prefs
-		},
-		"substring": func(s string, l int) string {
-			mu.Lock()
-			defer mu.Unlock()
-			if substring[s] == "" {
-				if len(s) > l {
-					tmp := s[:l] + "..."
-					substring[s] = tmp
-					return tmp
-				}
-				substring[s] = s
-				return s
-			} else {
-				return substring[s]
-			}
-		},
-		"substring60": func(s string) string {
-			mu.Lock()
-			defer mu.Unlock()
-			if substring60[s] == "" {
-				if len(s) > 60 {
-					substring60[s] = s[:60]
-					return substring60[s]
-				}
-				substring60[s] = s
-				return s
-			} else {
-				return substring60[s]
-			}
-		},
-		"split": strings.Split,
-		"getEntry": func(id int) Entry {
-			row := db.QueryRow(`SELECT * FROM entries WHERE id=?`, id)
-			var entryID, userID, private int
-			var body string
-			var createdAt time.Time
-			checkErr(row.Scan(&entryID, &userID, &private, &body, &createdAt))
-			return Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt}
-		},
-		"numComments": func(id int) int {
-			row := db.QueryRow(`SELECT COUNT(*) AS c FROM comments WHERE entry_id = ?`, id)
-			var n int
-			checkErr(row.Scan(&n))
-			return n
-		},
-	}
 	tpl := template.Must(template.New(file).Funcs(fmap).ParseFiles(getTemplatePath(file), getTemplatePath("header.html")))
 	w.WriteHeader(status)
 	checkErr(tpl.Execute(w, data))
@@ -588,13 +531,17 @@ func GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	markFootprint(w, r, owner.ID)
 
+	currentUser := getCurrentUser(w, r)
+
 	render(w, r, http.StatusOK, "profile.html", struct {
-		Owner   User
-		Profile Profile
-		Entries []Entry
-		Private bool
+		Owner       User
+		Profile     Profile
+		Entries     []Entry
+		Private     bool
+		CurrentUser User
+		IsFriend    bool
 	}{
-		*owner, prof, entries, permitted(w, r, owner.ID),
+		*owner, prof, entries, permitted(w, r, owner.ID), *currentUser, isFriend(w, r, owner.ID),
 	})
 }
 
@@ -673,7 +620,7 @@ func GetEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	checkErr(err)
 	entry := Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt}
-	owner := getUser(w, entry.UserID)
+	owner := getUser(entry.UserID)
 	if entry.Private {
 		if !permitted(w, r, owner.ID) {
 			checkErr(ErrPermissionDenied)
@@ -739,7 +686,7 @@ func PostComment(w http.ResponseWriter, r *http.Request) {
 	checkErr(err)
 
 	entry := Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt}
-	owner := getUser(w, entry.UserID)
+	owner := getUser(entry.UserID)
 	if entry.Private {
 		if !permitted(w, r, owner.ID) {
 			checkErr(ErrPermissionDenied)
@@ -887,6 +834,55 @@ func main() {
 		log.Fatalf("Failed to connect to DB: %s.", err.Error())
 	}
 	defer db.Close()
+
+	fmap = template.FuncMap{
+		"getUser": func(id int) *User {
+			return getUser(id)
+		},
+		"prefectures": func() []string {
+			return prefs
+		},
+		"substring": func(s string, l int) string {
+			if substring[s] == "" {
+				if len(s) > l {
+					tmp := s[:l] + "..."
+					substring[s] = tmp
+					return tmp
+				}
+				substring[s] = s
+				return s
+			} else {
+				return substring[s]
+			}
+		},
+		"substring60": func(s string) string {
+			if substring60[s] == "" {
+				if len(s) > 60 {
+					substring60[s] = s[:60]
+					return substring60[s]
+				}
+				substring60[s] = s
+				return s
+			} else {
+				return substring60[s]
+			}
+		},
+		"split": strings.Split,
+		"getEntry": func(id int) Entry {
+			row := db.QueryRow(`SELECT * FROM entries WHERE id=?`, id)
+			var entryID, userID, private int
+			var body string
+			var createdAt time.Time
+			checkErr(row.Scan(&entryID, &userID, &private, &body, &createdAt))
+			return Entry{id, userID, private == 1, strings.SplitN(body, "\n", 2)[0], strings.SplitN(body, "\n", 2)[1], createdAt}
+		},
+		"numComments": func(id int) int {
+			row := db.QueryRow(`SELECT COUNT(*) AS c FROM comments WHERE entry_id = ?`, id)
+			var n int
+			checkErr(row.Scan(&n))
+			return n
+		},
+	}
 
 	go http.ListenAndServe(":3000", nil)
 
