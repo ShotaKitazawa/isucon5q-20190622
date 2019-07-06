@@ -109,6 +109,7 @@ func authenticate(w http.ResponseWriter, r *http.Request, email, passwd string) 
 				checkErr(err)
 			}
 	*/
+	fmt.Println("%s", sha512.Sum512([]byte(passwd+userAuth[email].Salt)))
 	if userAuth[email].PassHash != fmt.Sprintf("%s", sha512.Sum512([]byte(passwd+userAuth[email].Salt))) {
 		checkErr(ErrAuthentication)
 	}
