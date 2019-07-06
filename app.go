@@ -339,15 +339,12 @@ func myHandler(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
 					delete(session.Values, "user_id")
 					session.Save(r, w)
 					fmt.Fprintf(w, loginFailed)
-					//render(w, r, http.StatusUnauthorized, "login.html", struct{ Message string }{"ログインに失敗しました"})
 					return
 				case rcv == ErrPermissionDenied:
 					fmt.Fprintf(w, onlyFriendAccess)
-					//render(w, r, http.StatusForbidden, "error.html", struct{ Message string }{"友人のみしかアクセスできません"})
 					return
 				case rcv == ErrContentNotFound:
 					fmt.Fprintf(w, contentNotFound)
-					//render(w, r, http.StatusNotFound, "error.html", struct{ Message string }{"要求されたコンテンツは存在しません"})
 					return
 				default:
 					var msg string
@@ -382,7 +379,6 @@ func render(w http.ResponseWriter, r *http.Request, status int, file string, dat
 }
 
 func GetLogin(w http.ResponseWriter, r *http.Request) {
-	//render(w, r, http.StatusOK, "login.html", struct{ Message string }{"高負荷に耐えられるSNSコミュニティサイトへようこそ!"})
 	fmt.Fprintf(w, helloworld)
 }
 
