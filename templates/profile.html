@@ -64,7 +64,7 @@
     <div><input type="submit" value="更新" /></div>
   </form>
 </div>
-{{ else if not .isFriend }}
+{{ else if not .IsFriend }}
 <h2>あなたは友だちではありません</h2>
 <div id="profile-friend-form">
   <form method="POST" action="/friends/{{ .Owner.AccountName }}">
